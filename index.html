@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de semblanzas PAU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Plan: cuaderno de examen PAU — papel frío, tinta verde de «cartela de currículo» como acento, ocre para avisos.
+   Layout: cabecera con pestañas; cada vista en una columna de lectura (≤ 72ch) con rejillas para tarjetas. */
+:root{
+  --paper:#f6f7f4; --surface:#ffffff; --ink:#1d2420; --muted:#5d6a63; --line:#d9dfd9;
+  --green:#2e5e3e; --green-soft:#e3eee6; --ochre:#9a6b12; --ochre-soft:#f6ecd7; --red:#a3392f; --red-soft:#f6e1de;
+  --display:"Spectral", Georgia, "Times New Roman", serif; --body:"Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141917; --surface:#1c2320; --ink:#e7ece8; --muted:#9fb0a6; --line:#2f3a35;
+    --green:#7fc296; --green-soft:#21352a; --ochre:#e0b35a; --ochre-soft:#3a2f1a; --red:#ec8a7f; --red-soft:#3d2421; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141917; --surface:#1c2320; --ink:#e7ece8; --muted:#9fb0a6; --line:#2f3a35;
+  --green:#7fc296; --green-soft:#21352a; --ochre:#e0b35a; --ochre-soft:#3a2f1a; --red:#ec8a7f; --red-soft:#3d2421; color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+a{color:var(--green)}
+header{border-bottom:1px solid var(--line);background:var(--surface)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding:22px 0 10px}
+h1{font-family:var(--display);font-weight:600;font-size:1.9rem;line-height:1.15;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:.9rem;margin:4px 0 0}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.95rem;border-bottom:3px solid transparent}
+nav a[aria-current="page"]{color:var(--green);border-bottom-color:var(--green)}
+nav a:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,.pick:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+main{padding:24px 0 60px}
+h2{font-family:var(--display);font-weight:600;font-size:1.45rem;margin:0 0 6px;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:1.2rem;margin:0}
+.lead{color:var(--muted);max-width:68ch;margin:0 0 18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:600 .85rem var(--body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--surface)}
+button.btn{font:600 .95rem var(--body);border-radius:6px;padding:10px 16px;cursor:pointer;border:1px solid var(--green);background:var(--green);color:var(--surface)}
+button.btn.ghost{background:transparent;color:var(--green)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.grid5{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:16px 0}
+.pick{background:var(--surface);border:2px solid var(--line);border-radius:8px;padding:0;text-align:left;cursor:pointer;font:inherit;color:inherit;overflow:hidden;display:flex;flex-direction:column}
+.pick[aria-pressed="true"]{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.pick .ph{aspect-ratio:4/3;background:var(--green-soft);display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--display);font-size:2rem}
+.pick .nm{padding:10px 12px;font-weight:600}
+.pick .tm{padding:0 12px 10px;color:var(--muted);font-size:.8rem}
+.status{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:12px 0}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:1.4rem;color:var(--green)}
+.timer.warn{color:var(--ochre)} .timer.over{color:var(--red)}
+.answer{margin:18px 0}
+.answer label{display:block;font-family:var(--display);font-size:1.15rem;font-weight:600;margin-bottom:6px}
+textarea{width:100%;min-height:210px;border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--surface);color:var(--ink);font:1rem/1.6 var(--display);resize:vertical;
+  background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.6em - 1px), var(--line) calc(1.6em - 1px), var(--line) 1.6em);background-attachment:local;background-position:0 12px}
+.meter{font-size:.85rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.res{border:1px solid var(--line);border-radius:8px;background:var(--surface);margin:18px 0;overflow:hidden}
+.res-h{display:flex;gap:16px;padding:16px;align-items:flex-start;border-bottom:1px solid var(--line)}
+.res-h img{width:96px;height:96px;object-fit:cover;border-radius:6px;flex:none}
+.score{margin-left:auto;text-align:right;flex:none}
+.score b{display:block;font:700 1.8rem/1 var(--display);font-variant-numeric:tabular-nums}
+.score span{font-size:.75rem;color:var(--muted)}
+.crit{display:grid;grid-template-columns:150px 1fr 48px;gap:8px 12px;align-items:center;padding:14px 16px;font-size:.92rem}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green)}
+.bar.mid i{background:var(--ochre)} .bar.low i{background:var(--red)}
+.notes{padding:0 16px 14px;font-size:.92rem}
+.notes p{margin:6px 0}
+.tag{display:inline-block;border-radius:4px;padding:1px 7px;margin:2px 3px 2px 0;font-size:.82rem}
+.tag.ok{background:var(--green-soft);color:var(--green)} .tag.miss{background:var(--ochre-soft);color:var(--ochre)}
+.cartela{display:inline-block;background:var(--green);color:var(--surface);border-radius:3px;padding:2px 8px;margin:3px 4px 0 0;font-size:.82rem;font-weight:600}
+details{border-top:1px solid var(--line)}
+summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
+.model{padding:0 16px 16px;font-family:var(--display);font-size:1.02rem;max-width:72ch}
+.model .cab{font-family:var(--body);font-size:.85rem;color:var(--muted);font-style:italic}
+.total{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;background:var(--green-soft);border-radius:8px;padding:16px 18px;margin-top:8px}
+.total b{font:700 2.2rem/1 var(--display);color:var(--green);font-variant-numeric:tabular-nums}
+.disclaimer{font-size:.82rem;color:var(--muted);max-width:72ch}
+.hist{font-size:.88rem;color:var(--muted);margin-top:16px}
+.hist li{font-variant-numeric:tabular-nums}
+/* Fichas */
+.card{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
+.card .frame{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;justify-content:center}
+.card .frame img{max-width:100%;max-height:420px;border-radius:4px}
+.opts{display:grid;gap:8px;margin:12px 0}
+.opt{text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:600 1rem var(--body);cursor:pointer}
+.opt.right{border-color:var(--green);background:var(--green-soft);color:var(--green)}
+.opt.wrong{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.stats{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
+/* Consulta */
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.filters input,.filters select{font:1rem var(--body);padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.filters input{flex:1;min-width:200px}
+.entry{display:grid;grid-template-columns:120px 1fr;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px}
+.entry img{width:120px;height:120px;object-fit:cover;border-radius:6px}
+.entry .noimg{width:120px;height:120px;border-radius:6px;background:var(--green-soft)}
+.entry .t{color:var(--muted);font-size:.8rem;font-weight:600;letter-spacing:.02em}
+.entry p{font-family:var(--display);margin:8px 0 0;max-width:72ch}
+.hidden{display:none!important}
+@media (max-width:640px){
+  .card{grid-template-columns:1fr}
+  .crit{grid-template-columns:110px 1fr 40px}
+  .entry{grid-template-columns:72px 1fr}
+  .entry img,.entry .noimg{width:72px;height:72px}
+  .res-h img{width:64px;height:64px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Simulador de semblanzas PAU</h1>
+        <p class="sub">Historia del Arte · 2.º de Bachillerato · Pregunta 3: «De los 5 artistas que se proponen, elija 3»</p>
+      </div>
+    </div>
+    <nav aria-label="Secciones">
+      <a href="#simulacro" data-view="simulacro">Simulacro</a>
+      <a href="#fichas" data-view="fichas">Fichas de obras</a>
+      <a href="#consulta" data-view="consulta">Consultar semblanzas</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- SIMULACRO -->
+  <section id="v-simulacro" aria-labelledby="h-sim">
+    <h2 id="h-sim">Simulacro de la pregunta 3</h2>
+    <p class="lead">Elige los temas que entran, genera cinco artistas como en la PAU y escoge tres. Escribe cada semblanza (época, características y obras; unas diez líneas) y entrégala para ver la semblanza modelo y una estimación con los criterios de corrección.</p>
+    <div class="panel">
+      <div class="row" id="temaChips" role="group" aria-label="Temas que entran"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="chip" id="preset1" type="button">1.ª evaluación (T1-T5)</button>
+        <button class="chip" id="preset2" type="button">2.ª evaluación (T6-T12)</button>
+        <button class="chip" id="preset3" type="button">3.ª evaluación (T13-T17)</button>
+        <button class="chip" id="presetAll" type="button">Todo</button>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn" id="gen" type="button">Generar 5 artistas</button>
+        <button class="btn ghost" id="copyQ" type="button" disabled>Copiar enunciado</button>
+        <span id="copyMsg" class="stats" role="status"></span>
+      </div>
+    </div>
+
+    <div id="stagePick" class="hidden">
+      <div class="status"><strong id="pickMsg">Selecciona 3 de los 5 artistas</strong>
+        <button class="btn" id="start" type="button" disabled>Empezar a escribir</button></div>
+      <div class="grid5" id="five"></div>
+    </div>
+
+    <div id="stageWrite" class="hidden">
+      <div class="status">
+        <span>Tiempo orientativo para la pregunta: 27 minutos (3 de 10 puntos en 90 minutos).</span>
+        <span class="timer" id="timer" aria-live="off">27:00</span>
+      </div>
+      <form id="writeForm"></form>
+    </div>
+
+    <div id="stageResult" class="hidden"></div>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <!-- FICHAS -->
+  <section id="v-fichas" class="hidden" aria-labelledby="h-fic">
+    <h2 id="h-fic">Fichas de obras</h2>
+    <p class="lead">¿Quién es el autor? Las imágenes son las de las presentaciones de clase. Al responder verás la obra, el estilo y un enlace a la semblanza completa.</p>
+    <div class="row" style="margin-bottom:14px"><label for="ficTema">Temas:</label>
+      <select id="ficTema"></select>
+      <span class="stats" id="ficStats">0 aciertos de 0</span></div>
+    <div class="card">
+      <div class="frame"><img id="ficImg" alt=""></div>
+      <div>
+        <div class="opts" id="ficOpts"></div>
+        <div id="ficInfo" class="hidden">
+          <p id="ficTxt" style="font-family:var(--display);font-size:1.05rem"></p>
+          <div class="row"><button class="btn" id="ficNext" type="button">Siguiente</button>
+          <a href="#consulta" id="ficLink">Leer la semblanza</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSULTA -->
+  <section id="v-consulta" class="hidden" aria-labelledby="h-con">
+    <h2 id="h-con">Consultar semblanzas</h2>
+    <p class="lead">Las 139 semblanzas del dossier (temas 1 a 17). En verde, las obras del currículo.</p>
+    <div class="filters">
+      <label class="hidden" for="q">Buscar</label>
+      <input id="q" type="search" placeholder="Buscar artista, obra o estilo">
+      <label class="hidden" for="conTema">Tema</label>
+      <select id="conTema"></select>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+var DATA=[], TEMAS=[], byId={};
+var STOP=new Set("para como sobre entre desde hasta donde cuando porque aunque tambien pero sino este esta estos estas aquel aquella otros otras otra otro todo toda todos todas cada mucho mucha muchos muchas puede pueden tiene tienen hace hacen hacia segun siglo siglos obra obras artista artistas forma formas gran grandes mayor mismo misma sobre ellos ellas cuya cuyo cuyas cuyos pintor pintora escultor escultora arquitecto arquitecta pintura escultura arquitectura tambien periodo epoca italia espana desde despues antes durante".split(" "));
+function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9ñ ]+/g," ").replace(/\s+/g," ").trim();}
+function md(s){return s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*]+)\*/g,"$1<em>$2</em>");}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function store(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k)||"null");}localStorage.setItem(k,JSON.stringify(v));}catch(e){return null;}}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+/* ---------- Rúbrica ---------- */
+function sig(words){return words.filter(function(w){return w.length>=4&&!STOP.has(w);});}
+function worksOf(e){
+  var list=e.obras.replace(/\([^)]*\)/g,"").split(/;|,| y (?=[A-ZÁÉÍÓÚÑ])/).map(function(s){return s.trim().replace(/\.$/,"");}).filter(Boolean);
+  var re=/\*\*(.+?)\*\*/g,m; while((m=re.exec(e.texto))){ if(!/^(Época|Características|Obras)\.$/.test(m[1])) list.push(m[1]); }
+  var seen={},out=[]; list.forEach(function(t){var k=norm(t); if(k&&!seen[k]){seen[k]=1;out.push(t);}}); return out;
+}
+function hasWork(ansWords,ansStr,title){
+  var w=sig(norm(title).split(" ")); if(!w.length) w=norm(title).split(" ");
+  var hit=w.filter(function(x){return ansWords.has(x)||ansStr.indexOf(x.slice(0,Math.max(5,x.length-2)))>=0;}).length;
+  return hit>=Math.max(1,Math.ceil(w.length*0.6));
+}
+var ROM={i:1,ii:2,iii:3,iv:4,v:5,vi:6,vii:7,viii:8,ix:9,x:10,xi:11,xii:12,xiii:13,xiv:14,xv:15,xvi:16,xvii:17,xviii:18,xix:19,xx:20,xxi:21};
+function epochInfo(e){
+  var c=norm(e.cab), cents=new Set(), m, re=/\b(?:siglo|siglos|s)\s+([ivx]+)/g;
+  while((m=re.exec(c))){ if(ROM[m[1]]) cents.add(ROM[m[1]]); }
+  var re2=/\b(?:ss|siglos)\s+([ivx]+)\s+([ivx]+)/g; while((m=re2.exec(c))){[m[1],m[2]].forEach(function(r){if(ROM[r])cents.add(ROM[r]);});}
+  var yrs=(e.cab.match(/\b(1\d{3}|20\d{2}|[1-9]\d{2})\b/g)||[]).map(Number);
+  var bc=/a\. ?c\./i.test(e.cab);
+  yrs.forEach(function(y){ cents.add(bc?Math.ceil(y/100):Math.floor(y/100)+1); });
+  var parts=e.cab.split(" · "), style=parts[parts.length-1].replace(/\(.*\)/,"");
+  var stw=sig(norm(style).split(" ")).filter(function(w){return !ROM[w];});
+  return {cents:cents,style:stw,styleLabel:style.trim(),bc:bc};
+}
+function charTerms(e){
+  var seg=(e.texto.split("**Características.**")[1]||"").split("**Obras.**")[0];
+  var seen={},out=[];
+  norm(seg).split(" ").forEach(function(w){ if(w.length>=7&&!STOP.has(w)&&!seen[w]){seen[w]=1;out.push(w);} });
+  return out.slice(0,24);
+}
+function grade(e,ans){
+  var aN=norm(ans), aW=new Set(aN.split(" ")), words=aN?aN.split(" ").length:0;
+  // Época
+  var ep=epochInfo(e), centHit=false;
+  ep.cents.forEach(function(n){ var r=Object.keys(ROM).find(function(k){return ROM[k]===n;}); if(r&&(aW.has(r)||new RegExp("\\b"+(n-1)+"\\d\\d\\b").test(aN))) centHit=true; });
+  var styleHit=ep.style.filter(function(w){return aW.has(w)||aN.indexOf(w.slice(0,6))>=0;});
+  var sEp=(centHit?0.55:0)+(styleHit.length?0.45:0);
+  // Características
+  var terms=charTerms(e), tHit=terms.filter(function(t){return aW.has(t)||aN.indexOf(t.slice(0,Math.max(6,t.length-3)))>=0;});
+  var sCar=Math.min(1,tHit.length/4);
+  // Obras
+  var works=worksOf(e), wHit=works.filter(function(t){return hasWork(aW,aN,t);});
+  var sOb=Math.min(1,wHit.length/2);
+  var pen=words<45?0.6:(words<70?0.85:1);
+  var total=Math.round(((0.3*sEp+0.35*sCar+0.35*sOb)*pen)*20)/20;
+  return {words:words,sEp:sEp,centHit:centHit,styleHit:styleHit,ep:ep,sCar:sCar,tHit:tHit,terms:terms,sOb:sOb,wHit:wHit,works:works,pen:pen,total:total};
+}
+
+/* ---------- Vistas ---------- */
+var views=["simulacro","fichas","consulta"];
+function route(){
+  var h=(location.hash||"#simulacro").slice(1); if(views.indexOf(h)<0) h="simulacro";
+  views.forEach(function(v){ document.getElementById("v-"+v).classList.toggle("hidden",v!==h); });
+  document.querySelectorAll("nav a").forEach(function(a){ if(a.dataset.view===h) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  if(h==="fichas"&&!fic.cur) nextFic();
+}
+window.addEventListener("hashchange",route);
+
+/* ---------- Simulacro ---------- */
+var sel=new Set(), five=[], chosen=[], timerId=null, endAt=0;
+function temaLabel(n){var t=TEMAS.find(function(x){return x.n===n;});return t?t.label:"T"+n;}
+function buildChips(){
+  var box=document.getElementById("temaChips"); box.innerHTML="";
+  TEMAS.forEach(function(t){
+    var b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent="T"+t.n; b.title=t.label;
+    b.setAttribute("aria-pressed",sel.has(t.n)?"true":"false");
+    b.onclick=function(){ if(sel.has(t.n)) sel.delete(t.n); else sel.add(t.n); buildChips(); };
+    box.appendChild(b);
+  });
+  document.getElementById("gen").disabled=!pool().length;
+}
+function setPreset(a,b){sel=new Set(TEMAS.filter(function(t){return t.n>=a&&t.n<=b;}).map(function(t){return t.n;}));buildChips();}
+document.getElementById("preset1").onclick=function(){setPreset(1,5);};
+document.getElementById("preset2").onclick=function(){setPreset(6,12);};
+document.getElementById("preset3").onclick=function(){setPreset(13,17);};
+document.getElementById("presetAll").onclick=function(){setPreset(1,17);};
+function pool(){return DATA.filter(function(e){return sel.has(e.tema)&&!e.compl;});}
+function generate(){
+  var p=shuffle(pool().slice()), out=[], usedT={};
+  p.forEach(function(e){ if(out.length<5&&!usedT[e.tema]){usedT[e.tema]=1;out.push(e);} });
+  p.forEach(function(e){ if(out.length<5&&out.indexOf(e)<0) out.push(e); });
+  five=out; chosen=[]; stopTimer();
+  document.getElementById("stageWrite").classList.add("hidden");
+  document.getElementById("stageResult").classList.add("hidden");
+  document.getElementById("stagePick").classList.remove("hidden");
+  document.getElementById("copyQ").disabled=false;
+  drawFive();
+}
+function drawFive(){
+  var g=document.getElementById("five"); g.innerHTML="";
+  five.forEach(function(e){
+    var b=document.createElement("button"); b.type="button"; b.className="pick";
+    b.setAttribute("aria-pressed",chosen.indexOf(e)>=0?"true":"false");
+    b.innerHTML='<div class="ph" aria-hidden="true">'+esc(e.nombre.charAt(0))+'</div><div class="nm">'+esc(e.nombre)+'</div><div class="tm">'+esc(temaLabel(e.tema))+'</div>';
+    b.onclick=function(){ var i=chosen.indexOf(e); if(i>=0) chosen.splice(i,1); else if(chosen.length<3) chosen.push(e); drawFive(); };
+    g.appendChild(b);
+  });
+  document.getElementById("pickMsg").textContent=chosen.length===3?"Listo: has elegido 3 artistas":"Selecciona 3 de los 5 artistas ("+chosen.length+"/3)";
+  document.getElementById("start").disabled=chosen.length!==3;
+}
+document.getElementById("gen").onclick=generate;
+document.getElementById("copyQ").onclick=function(){
+  var t="3. De los 5 artistas que se proponen, elija 3, explicando su época, características y obras más significativas (se recomienda no más de diez líneas para cada uno): "+five.map(function(e){return e.nombre;}).join(", ")+"\n(Puntuación máxima: 3 puntos; 1 por cada respuesta correcta)";
+  var msg=document.getElementById("copyMsg");
+  try{ navigator.clipboard.writeText(t).then(function(){msg.textContent="Enunciado copiado.";},function(){msg.textContent=t;}); }catch(e){ msg.textContent=t; }
+};
+function fmt(ms){var s=Math.max(0,Math.round(ms/1000));return (ms<0?"-":"")+String(Math.floor(Math.abs(ms)/60000)).padStart(2,"0")+":"+String(Math.abs(Math.round(ms/1000))%60).padStart(2,"0");}
+function tick(){var left=endAt-Date.now(),el=document.getElementById("timer");el.textContent=fmt(left);el.className="timer"+(left<0?" over":(left<5*60000?" warn":""));}
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
+document.getElementById("start").onclick=function(){
+  var f=document.getElementById("writeForm"); f.innerHTML="";
+  chosen.forEach(function(e,i){
+    var d=document.createElement("div"); d.className="answer";
+    d.innerHTML='<label for="ans'+i+'">'+(i+1)+'. '+esc(e.nombre)+'</label><textarea id="ans'+i+'" spellcheck="true" placeholder="Época… Características… Obras…"></textarea><div class="meter" id="m'+i+'">0 palabras · ≈ 0 líneas manuscritas</div>';
+    f.appendChild(d);
+    d.querySelector("textarea").addEventListener("input",function(ev){var n=norm(ev.target.value)?norm(ev.target.value).split(" ").length:0;document.getElementById("m"+i).textContent=n+" palabras · ≈ "+Math.round(n/11)+" líneas manuscritas";try{sessionStorage.setItem("draft"+i,ev.target.value);}catch(x){}});
+  });
+  var sub=document.createElement("div"); sub.className="row";
+  sub.innerHTML='<button class="btn" type="submit">Entregar y corregir</button>'; f.appendChild(sub);
+  document.getElementById("stagePick").classList.add("hidden");
+  document.getElementById("stageWrite").classList.remove("hidden");
+  endAt=Date.now()+27*60000; stopTimer(); tick(); timerId=setInterval(tick,1000);
+  document.getElementById("ans0").focus();
+};
+document.getElementById("writeForm").addEventListener("submit",function(ev){
+  ev.preventDefault(); stopTimer();
+  var used=27*60000-(endAt-Date.now());
+  var res=chosen.map(function(e,i){return {e:e,ans:document.getElementById("ans"+i).value,g:grade(e,document.getElementById("ans"+i).value)};});
+  var tot=res.reduce(function(s,r){return s+r.g.total;},0);
+  var box=document.getElementById("stageResult"); box.innerHTML="";
+  var h='<div class="total"><div><div class="stats">Estimación de la pregunta 3</div><b>'+tot.toFixed(2).replace(".",",")+' / 3</b></div><div class="stats">Tiempo empleado: '+fmt(used)+' de 27:00</div><button class="btn" type="button" id="again">Otro simulacro</button></div>';
+  res.forEach(function(r){ h+=resultCard(r); });
+  h+='<p class="disclaimer">La nota es orientativa: el simulador comprueba si aparecen la época (siglo o fecha y estilo), los rasgos característicos del modelo y las obras del currículo, y penaliza las respuestas muy breves. No valora la redacción, la precisión de las ideas ni los errores, que debe revisar el profesor.</p>';
+  box.innerHTML=h; box.classList.remove("hidden");
+  document.getElementById("stageWrite").classList.add("hidden");
+  document.getElementById("again").onclick=generate;
+  var hist=store("pau3hist")||[]; hist.unshift({d:new Date().toLocaleDateString("es-ES"),a:chosen.map(function(e){return e.nombre;}),s:tot}); store("pau3hist",hist.slice(0,10)); drawHist();
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+});
+function barCls(v){return v>=0.7?"":(v>=0.4?"mid":"low");}
+function resultCard(r){
+  var e=r.e,g=r.g;
+  var miss=g.works.filter(function(w){return g.wHit.indexOf(w)<0;}).slice(0,6);
+  var tMiss=g.terms.filter(function(t){return g.tHit.indexOf(t)<0;}).slice(0,6);
+  var epTxt=(g.centHit?'<span class="tag ok">siglo o fecha</span>':'<span class="tag miss">falta el siglo o una fecha</span>')+(g.styleHit.length?'<span class="tag ok">estilo: '+esc(g.styleHit.join(", "))+'</span>':'<span class="tag miss">nombra el estilo: '+esc(g.ep.styleLabel)+'</span>');
+  return '<article class="res"><div class="res-h">'+(e.img?'<img src="'+e.img+'" alt="'+esc(e.pie||"")+'">':'')+
+    '<div><h3>'+esc(e.nombre)+'</h3><div class="stats">'+esc(e.cab)+'</div><div class="stats">'+g.words+' palabras · ≈ '+Math.round(g.words/11)+' líneas'+(g.pen<1?' · <span style="color:var(--ochre)">respuesta breve</span>':'')+'</div></div>'+
+    '<div class="score"><b>'+g.total.toFixed(2).replace(".",",")+'</b><span>de 1 punto</span></div></div>'+
+    '<div class="crit">'+
+      '<span>Época</span><div class="bar '+barCls(g.sEp)+'"><i style="width:'+Math.round(g.sEp*100)+'%"></i></div><span class="stats">'+Math.round(g.sEp*100)+'%</span>'+
+      '<span>Características</span><div class="bar '+barCls(g.sCar)+'"><i style="width:'+Math.round(g.sCar*100)+'%"></i></div><span class="stats">'+Math.round(g.sCar*100)+'%</span>'+
+      '<span>Obras</span><div class="bar '+barCls(g.sOb)+'"><i style="width:'+Math.round(g.sOb*100)+'%"></i></div><span class="stats">'+Math.round(g.sOb*100)+'%</span>'+
+    '</div><div class="notes">'+
+      '<p><strong>Época:</strong> '+epTxt+'</p>'+
+      '<p><strong>Rasgos que has usado:</strong> '+(g.tHit.length?g.tHit.map(function(t){return '<span class="tag ok">'+esc(t)+'</span>';}).join(""):'<span class="stats">ninguno del modelo</span>')+(tMiss.length?'<br><strong>Podrías añadir:</strong> '+tMiss.map(function(t){return '<span class="tag miss">'+esc(t)+'</span>';}).join(""):'')+'</p>'+
+      '<p><strong>Obras citadas:</strong> '+(g.wHit.length?g.wHit.map(function(t){return '<span class="tag ok">'+esc(t)+'</span>';}).join(""):'<span class="stats">ninguna reconocida</span>')+(miss.length?'<br><strong>Te faltan:</strong> '+miss.map(function(t){return '<span class="tag miss">'+esc(t)+'</span>';}).join(""):'')+'</p>'+
+    '</div><details><summary>Comparar con la semblanza modelo</summary><div class="model"><p class="cab">'+esc(e.cab)+'</p><p>'+md(e.texto)+'</p>'+cartelas(e)+'</div></details>'+
+    '<details><summary>Tu respuesta</summary><div class="model"><p>'+(esc(r.ans).replace(/\n/g,"<br>")||'<em>(en blanco)</em>')+'</p></div></details></article>';
+}
+function cartelas(e){return '<div>'+e.obras.replace(/\.$/,"").split(/;|, (?=[A-ZÁÉÍÓÚÑ])| y (?=[A-ZÁÉÍÓÚÑ])/).map(function(o){return '<span class="cartela">'+esc(o.trim())+'</span>';}).join("")+'</div>';}
+function drawHist(){
+  var h=store("pau3hist")||[], el=document.getElementById("hist");
+  if(!h.length){el.innerHTML="";return;}
+  el.innerHTML='<strong>Tus últimos simulacros en este navegador</strong><ul>'+h.map(function(x){return '<li>'+esc(x.d)+' · '+x.s.toFixed(2).replace(".",",")+' / 3 · '+esc(x.a.join(", "))+'</li>';}).join("")+'</ul>';
+}
+
+/* ---------- Fichas ---------- */
+var fic={cur:null,ok:0,n:0};
+function ficPool(){var v=document.getElementById("ficTema").value;return DATA.filter(function(e){return e.img&&e.pie&&!/^Retrato|Piano y Richard/.test(e.pie)&&(v==="all"||String(e.tema)===v||(v==="e1"&&e.tema<=5)||(v==="e2"&&e.tema>=6&&e.tema<=12)||(v==="e3"&&e.tema>=13));});}
+function nextFic(){
+  var p=ficPool(); if(!p.length) return;
+  var e=p[Math.floor(Math.random()*p.length)]; if(fic.cur&&p.length>1&&e===fic.cur) return nextFic();
+  fic.cur=e;
+  var near=DATA.filter(function(x){return x!==e&&!x.compl&&Math.abs(x.tema-e.tema)<=1;});
+  if(near.length<3) near=DATA.filter(function(x){return x!==e;});
+  var opts=shuffle(shuffle(near).slice(0,3).concat([e]));
+  var img=document.getElementById("ficImg"); img.src=e.img; img.alt="Obra para identificar";
+  var box=document.getElementById("ficOpts"); box.innerHTML="";
+  opts.forEach(function(o){
+    var b=document.createElement("button"); b.type="button"; b.className="opt"; b.textContent=o.nombre;
+    b.onclick=function(){
+      if(box.dataset.done) return; box.dataset.done="1"; fic.n++; if(o===e) fic.ok++;
+      box.querySelectorAll(".opt").forEach(function(x){ if(x.textContent===e.nombre) x.classList.add("right"); else if(x===b) x.classList.add("wrong"); });
+      document.getElementById("ficStats").textContent=fic.ok+" aciertos de "+fic.n;
+      document.getElementById("ficTxt").innerHTML='<strong>'+esc(e.pie)+'</strong>, de '+esc(e.nombre)+'. '+esc(e.cab.split(" · ").pop());
+      document.getElementById("ficLink").href="#consulta"; document.getElementById("ficLink").onclick=function(){document.getElementById("q").value=e.nombre;drawList();};
+      document.getElementById("ficInfo").classList.remove("hidden");
+      document.getElementById("ficNext").focus();
+    };
+    box.appendChild(b);
+  });
+  delete box.dataset.done; document.getElementById("ficInfo").classList.add("hidden");
+}
+document.getElementById("ficNext").onclick=nextFic;
+document.getElementById("ficTema").onchange=function(){fic.cur=null;nextFic();};
+
+/* ---------- Consulta ---------- */
+function drawList(){
+  var q=norm(document.getElementById("q").value), t=document.getElementById("conTema").value;
+  var items=DATA.filter(function(e){return (t==="all"||String(e.tema)===t)&&(!q||norm(e.nombre+" "+e.cab+" "+e.obras+" "+e.texto).indexOf(q)>=0);});
+  document.getElementById("list").innerHTML=items.length?items.map(function(e){
+    return '<article class="entry">'+(e.img?'<img src="'+e.img+'" alt="'+esc(e.pie||"")+'" loading="lazy">':'<div class="noimg" aria-hidden="true"></div>')+
+    '<div><div class="t">'+esc(temaLabel(e.tema))+(e.compl?' · complementaria':'')+'</div><h3>'+esc(e.nombre)+'</h3><div class="stats">'+esc(e.cab)+'</div>'+
+    '<details style="border:0"><summary style="padding:8px 0">Leer la semblanza</summary><p>'+md(e.texto)+'</p></details>'+cartelas(e)+'</div></article>';
+  }).join(""):'<p class="lead">No hay semblanzas con esa búsqueda. Prueba con otro nombre u obra.</p>';
+}
+document.getElementById("q").addEventListener("input",drawList);
+document.getElementById("conTema").addEventListener("change",drawList);
+
+/* ---------- Carga ---------- */
+fetch("semblanzas.json").then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
+  DATA=d; d.forEach(function(e){byId[e.id]=e;});
+  var seen={}; d.forEach(function(e){ if(!seen[e.tema]){seen[e.tema]=1; TEMAS.push({n:e.tema,label:e.temaNombre});} });
+  sel=new Set(TEMAS.map(function(t){return t.n;}));
+  buildChips();
+  var opt=TEMAS.map(function(t){return '<option value="'+t.n+'">'+esc(t.label)+'</option>';}).join("");
+  document.getElementById("conTema").innerHTML='<option value="all">Todos los temas</option>'+opt;
+  document.getElementById("ficTema").innerHTML='<option value="all">Todos los temas</option><option value="e1">1.ª evaluación (T1-T5)</option><option value="e2">2.ª evaluación (T6-T12)</option><option value="e3">3.ª evaluación (T13-T17)</option>'+opt;
+  drawList(); drawHist(); generate(); route();
+}).catch(function(err){
+  document.querySelector("main").innerHTML='<p class="lead">No se han podido cargar las semblanzas ('+esc(err.message)+'). Recarga la página.</p>';
+});
+})();
+</script>
+</body>
+</html>
