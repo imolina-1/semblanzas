@@ -28,3 +28,18 @@ Entrenamiento para la pregunta 3 de la PAU de Historia del Arte (2.º de Bachill
 La nota del simulacro es orientativa: comprueba la presencia de contenidos, no la calidad de la redacción.
 
 Material de uso docente. Las imágenes proceden de las presentaciones de clase; las obras y fotografías conservan los derechos de sus autores.
+
+## Estadísticas anónimas
+
+La página puede enviar recuentos anónimos a [GoatCounter](https://www.goatcounter.com) (sin cookies ni datos personales). Se activan escribiendo el código de la cuenta en la línea `var GC_CODE="";` de `index.html`. Se registran estos eventos:
+
+| Ruta | Qué cuenta |
+|---|---|
+| `vista/…` | Uso de cada sección |
+| `simulacro/generado`, `empezado`, `entregado` | Simulacros iniciados y completados |
+| `propuesto/<artista>`, `elegido/<artista>` | Qué artistas se eligen y cuáles se evitan |
+| `nota/<artista>/alta·media·baja` | Nota orientativa por artista |
+| `falta-epoca/…`, `falta-obras/…`, `respuesta-breve/…` | Fallos frecuentes por artista |
+| `simulacro/nota-total/…`, `simulacro/tiempo/…` | Distribución de notas y tiempos |
+| `ficha/acierto·fallo/<artista>` | Obras que más se fallan (el título indica con quién se confunden) |
+| `leida/<artista>` | Semblanzas más consultadas |

@@ -235,6 +235,25 @@ summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
 <script>
 (function(){
 "use strict";
+/* ---------- Estadísticas anónimas (GoatCounter) ----------
+   Sin cookies ni datos personales: solo recuentos agregados.
+   Para activarlas, escribe aquí el código de la cuenta (lo que va antes de .goatcounter.com). */
+var GC_CODE="";
+var GC_QUEUE=[];
+if(GC_CODE&&location.protocol==="https:"){
+  var gs=document.createElement("script"); gs.async=true; gs.src="https://gc.zgo.at/count.js";
+  gs.setAttribute("data-goatcounter","https://"+GC_CODE+".goatcounter.com/count");
+  gs.onload=function(){ GC_QUEUE.splice(0).forEach(function(a){ track(a[0],a[1]); }); };
+  document.head.appendChild(gs);
+}
+function track(path,title){
+  if(!GC_CODE) return;
+  try{
+    if(window.goatcounter&&window.goatcounter.count){ window.goatcounter.count({path:path,title:title||path,event:true}); }
+    else GC_QUEUE.push([path,title]);
+  }catch(e){}
+}
+function bucket(v){return v>=0.7?"alta":(v>=0.4?"media":"baja");}
 var DATA=[], TEMAS=[], byId={};
 var STOP=new Set("para como sobre entre desde hasta donde cuando porque aunque tambien pero sino este esta estos estas aquel aquella otros otras otra otro todo toda todos todas cada mucho mucha muchos muchas puede pueden tiene tienen hace hacen hacia segun siglo siglos obra obras artista artistas forma formas gran grandes mayor mismo misma sobre ellos ellas cuya cuyo cuyas cuyos pintor pintora escultor escultora arquitecto arquitecta pintura escultura arquitectura tambien periodo epoca italia espana desde despues antes durante".split(" "));
 function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9ñ ]+/g," ").replace(/\s+/g," ").trim();}
@@ -304,6 +323,7 @@ function route(){
   var h=(location.hash||"#simulacro").slice(1);
   if(h.indexOf("a-")===0&&byId[h.slice(2)]){ document.getElementById("q").value=byId[h.slice(2)].nombre; document.getElementById("conTema").value="all"; drawList(); h="consulta"; }
   if(views.indexOf(h)<0) h="simulacro";
+  if(route.last!==h){ route.last=h; track("vista/"+h,"Vista: "+h); }
   views.forEach(function(v){ document.getElementById("v-"+v).classList.toggle("hidden",v!==h); });
   document.querySelectorAll("nav a").forEach(function(a){ if(a.dataset.view===h) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   if(h==="fichas"&&!fic.cur){nextFic();ficStats();}
@@ -334,6 +354,8 @@ function generate(){
   p.forEach(function(e){ if(out.length<5&&!usedT[e.tema]){usedT[e.tema]=1;out.push(e);} });
   p.forEach(function(e){ if(out.length<5&&out.indexOf(e)<0) out.push(e); });
   five=out; chosen=[]; stopTimer();
+  track("simulacro/generado","Simulacro generado");
+  out.forEach(function(e){ track("propuesto/"+e.id,"Propuesto: "+e.nombre); });
   document.getElementById("stageWrite").classList.add("hidden");
   document.getElementById("stageResult").classList.add("hidden");
   document.getElementById("stagePick").classList.remove("hidden");
@@ -375,6 +397,8 @@ document.getElementById("start").onclick=function(){
   document.getElementById("stagePick").classList.add("hidden");
   document.getElementById("stageWrite").classList.remove("hidden");
   endAt=Date.now()+27*60000; stopTimer(); tick(); timerId=setInterval(tick,1000);
+  track("simulacro/empezado","Simulacro empezado");
+  chosen.forEach(function(e){ track("elegido/"+e.id,"Elegido: "+e.nombre); });
   document.getElementById("ans0").focus();
 };
 document.getElementById("writeForm").addEventListener("submit",function(ev){
@@ -382,6 +406,15 @@ document.getElementById("writeForm").addEventListener("submit",function(ev){
   var used=27*60000-(endAt-Date.now());
   var res=chosen.map(function(e,i){return {e:e,ans:document.getElementById("ans"+i).value,g:grade(e,document.getElementById("ans"+i).value)};});
   var tot=res.reduce(function(s,r){return s+r.g.total;},0);
+  track("simulacro/entregado","Simulacro entregado");
+  track("simulacro/nota-total/"+(tot<1?"0-1":(tot<2?"1-2":"2-3")),"Nota total del simulacro: "+(tot<1?"menos de 1":(tot<2?"entre 1 y 2":"2 o más")));
+  track("simulacro/tiempo/"+(used<15*60000?"menos-15min":(used<=27*60000?"15-27min":"mas-27min")),"Tiempo del simulacro");
+  res.forEach(function(r){
+    track("nota/"+r.e.id+"/"+bucket(r.g.total),"Nota "+bucket(r.g.total)+": "+r.e.nombre);
+    if(r.g.sEp<0.4) track("falta-epoca/"+r.e.id,"Sin época: "+r.e.nombre);
+    if(r.g.sOb<0.5) track("falta-obras/"+r.e.id,"Sin obras: "+r.e.nombre);
+    if(r.g.words<70) track("respuesta-breve/"+r.e.id,"Respuesta breve: "+r.e.nombre);
+  });
   var box=document.getElementById("stageResult"); box.innerHTML="";
   var h='<div class="total"><div><div class="stats">Estimación de la pregunta 3</div><b>'+tot.toFixed(2).replace(".",",")+' / 3</b></div><div class="stats">Tiempo empleado: '+fmt(used)+' de 27:00</div><button class="btn" type="button" id="again">Otro simulacro</button></div>';
   res.forEach(function(r){ h+=resultCard(r); });
@@ -439,7 +472,7 @@ function nextFic(){
   opts.forEach(function(o){
     var b=document.createElement("button"); b.type="button"; b.className="opt"; b.textContent=o.nombre;
     b.onclick=function(){
-      if(box.dataset.done) return; box.dataset.done="1"; fic.n++; if(o===e) fic.ok++; setBox(e.id,o===e);
+      if(box.dataset.done) return; box.dataset.done="1"; fic.n++; if(o===e) fic.ok++; setBox(e.id,o===e); track("ficha/"+(o===e?"acierto":"fallo")+"/"+e.id,"Ficha "+(o===e?"acertada":"fallada")+": "+e.nombre+(o===e?"":" (confundido con "+o.nombre+")"));
       box.querySelectorAll(".opt").forEach(function(x){ if(x.textContent===e.nombre) x.classList.add("right"); else if(x===b) x.classList.add("wrong"); });
       ficStats();
       document.getElementById("ficTxt").innerHTML='<strong>'+esc(e.pie)+'</strong>, de '+esc(e.nombre)+'. '+esc(e.cab.split(" · ").pop());
@@ -467,6 +500,10 @@ function drawList(){
   }).join(""):'<p class="lead">No hay semblanzas con esa búsqueda. Prueba con otro nombre u obra.</p>';
 }
 document.getElementById("q").addEventListener("input",drawList);
+document.getElementById("list").addEventListener("toggle",function(ev){
+  var d=ev.target; if(!d.open) return; var art=d.closest(".entry"); if(!art) return;
+  var b=art.querySelector("[data-link]"); if(b&&byId[b.dataset.link]) track("leida/"+b.dataset.link,"Semblanza leída: "+byId[b.dataset.link].nombre);
+},true);
 window.addEventListener("beforeprint",function(){document.querySelectorAll("#v-consulta details").forEach(function(d){d.open=true;});});
 document.getElementById("list").addEventListener("click",function(ev){
   var b=ev.target.closest("[data-link]"); if(!b) return;
