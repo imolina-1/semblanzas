@@ -114,7 +114,19 @@ summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
 .entry .noimg{width:120px;height:120px;border-radius:6px;background:var(--green-soft)}
 .entry .t{color:var(--muted);font-size:.8rem;font-weight:600;letter-spacing:.02em}
 .entry p{font-family:var(--display);margin:8px 0 0;max-width:72ch}
+.entry .body .sec{margin:8px 0 0}
 .hidden{display:none!important}
+.sec{margin:0 0 .7em}
+.sec:last-child{margin-bottom:0}
+.lbl{font-variant-caps:small-caps;font-weight:700;letter-spacing:.05em;color:var(--green);font-size:1.08em;margin-right:.35em}
+.scaffold{font:600 .85rem var(--body);background:none;border:1px dashed var(--green);color:var(--green);border-radius:4px;padding:4px 10px;cursor:pointer;margin-top:6px}
+@media print{
+  header nav,.filters,#v-simulacro,#v-fichas,.foot,.linkbtn,summary{display:none!important}
+  #v-consulta{display:block!important}
+  body{background:#fff;color:#000}
+  .entry{break-inside:avoid;border-color:#bbb}
+  .lbl{color:#000}
+}
 .foot{border-top:1px solid var(--line);padding:18px 20px 40px;color:var(--muted);font-size:.85rem}
 .foot p{max-width:72ch;margin:0}
 .linkbtn{background:none;border:0;padding:0;color:var(--green);font:600 .85rem var(--body);cursor:pointer;text-decoration:underline}
@@ -227,6 +239,13 @@ var DATA=[], TEMAS=[], byId={};
 var STOP=new Set("para como sobre entre desde hasta donde cuando porque aunque tambien pero sino este esta estos estas aquel aquella otros otras otra otro todo toda todos todas cada mucho mucha muchos muchas puede pueden tiene tienen hace hacen hacia segun siglo siglos obra obras artista artistas forma formas gran grandes mayor mismo misma sobre ellos ellas cuya cuyo cuyas cuyos pintor pintora escultor escultora arquitecto arquitecta pintura escultura arquitectura tambien periodo epoca italia espana desde despues antes durante".split(" "));
 function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9ñ ]+/g," ").replace(/\s+/g," ").trim();}
 function md(s){return s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*]+)\*/g,"$1<em>$2</em>");}
+function sections(t){
+  var parts=t.split(/\*\*(Época|Características|Obras)\.\*\*\s*/);
+  if(parts.length<3) return '<p>'+md(t)+'</p>';
+  var out='';
+  for(var i=1;i<parts.length;i+=2){ out+='<p class="sec"><span class="lbl">'+parts[i]+'</span>'+md(parts[i+1].trim())+'</p>'; }
+  return out;
+}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function store(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem(k)||"null");}localStorage.setItem(k,JSON.stringify(v));}catch(e){return null;}}
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
@@ -346,8 +365,9 @@ document.getElementById("start").onclick=function(){
   var f=document.getElementById("writeForm"); f.innerHTML="";
   chosen.forEach(function(e,i){
     var d=document.createElement("div"); d.className="answer";
-    d.innerHTML='<label for="ans'+i+'">'+(i+1)+'. '+esc(e.nombre)+'</label><textarea id="ans'+i+'" spellcheck="true" placeholder="Época… Características… Obras…"></textarea><div class="meter" id="m'+i+'">0 palabras · ≈ 0 líneas manuscritas</div>';
+    d.innerHTML='<label for="ans'+i+'">'+(i+1)+'. '+esc(e.nombre)+'</label><textarea id="ans'+i+'" spellcheck="true" placeholder="Época… Características… Obras…"></textarea><button type="button" class="scaffold" data-i="'+i+'">Insertar guion: época, características, obras</button><div class="meter" id="m'+i+'">0 palabras · ≈ 0 líneas manuscritas</div>';
     f.appendChild(d);
+    d.querySelector(".scaffold").onclick=function(){var ta=document.getElementById("ans"+i);if(!ta.value.trim()){ta.value="Época: \n\nCaracterísticas: \n\nObras: ";}ta.focus();ta.setSelectionRange(8,8);};
     d.querySelector("textarea").addEventListener("input",function(ev){var n=norm(ev.target.value)?norm(ev.target.value).split(" ").length:0;document.getElementById("m"+i).textContent=n+" palabras · ≈ "+Math.round(n/11)+" líneas manuscritas";try{sessionStorage.setItem("draft"+i,ev.target.value);}catch(x){}});
   });
   var sub=document.createElement("div"); sub.className="row";
@@ -389,7 +409,7 @@ function resultCard(r){
       '<p><strong>Época:</strong> '+epTxt+'</p>'+
       '<p><strong>Rasgos que has usado:</strong> '+(g.tHit.length?g.tHit.map(function(t){return '<span class="tag ok">'+esc(t)+'</span>';}).join(""):'<span class="stats">ninguno del modelo</span>')+(tMiss.length?'<br><strong>Podrías añadir:</strong> '+tMiss.map(function(t){return '<span class="tag miss">'+esc(t)+'</span>';}).join(""):'')+'</p>'+
       '<p><strong>Obras citadas:</strong> '+(g.wHit.length?g.wHit.map(function(t){return '<span class="tag ok">'+esc(t)+'</span>';}).join(""):'<span class="stats">ninguna reconocida</span>')+(miss.length?'<br><strong>Te faltan:</strong> '+miss.map(function(t){return '<span class="tag miss">'+esc(t)+'</span>';}).join(""):'')+'</p>'+
-    '</div><details><summary>Comparar con la semblanza modelo</summary><div class="model"><p class="cab">'+esc(e.cab)+'</p><p>'+md(e.texto)+'</p>'+cartelas(e)+'</div></details>'+
+    '</div><details><summary>Comparar con la semblanza modelo</summary><div class="model"><p class="cab">'+esc(e.cab)+'</p>'+sections(e.texto)+cartelas(e)+'</div></details>'+
     '<details><summary>Tu respuesta</summary><div class="model"><p>'+(esc(r.ans).replace(/\n/g,"<br>")||'<em>(en blanco)</em>')+'</p></div></details></article>';
 }
 function cartelas(e){return '<div>'+e.obras.replace(/\.$/,"").split(/;|, (?=[A-ZÁÉÍÓÚÑ])| y (?=[A-ZÁÉÍÓÚÑ])/).map(function(o){return '<span class="cartela">'+esc(o.trim())+'</span>';}).join("")+'</div>';}
@@ -443,10 +463,11 @@ function drawList(){
   document.getElementById("list").innerHTML=items.length?items.map(function(e){
     return '<article class="entry">'+(e.img?'<img src="'+e.img+'" alt="'+esc(e.pie||"")+'" loading="lazy">':'<div class="noimg" aria-hidden="true"></div>')+
     '<div><div class="t">'+esc(temaLabel(e.tema))+(e.compl?' · complementaria':'')+'</div><h3>'+esc(e.nombre)+'</h3><div class="stats">'+esc(e.cab)+'</div>'+
-    '<details style="border:0"><summary style="padding:8px 0">Leer la semblanza</summary><p>'+md(e.texto)+'</p></details>'+cartelas(e)+'<div style="margin-top:8px"><button type="button" class="linkbtn" data-link="'+e.id+'">Copiar enlace a esta semblanza</button> <span class="stats" role="status"></span></div></div></article>';
+    '<details style="border:0"><summary style="padding:8px 0">Leer la semblanza</summary><div class="body">'+sections(e.texto)+'</div></details>'+cartelas(e)+'<div style="margin-top:8px"><button type="button" class="linkbtn" data-link="'+e.id+'">Copiar enlace a esta semblanza</button> <span class="stats" role="status"></span></div></div></article>';
   }).join(""):'<p class="lead">No hay semblanzas con esa búsqueda. Prueba con otro nombre u obra.</p>';
 }
 document.getElementById("q").addEventListener("input",drawList);
+window.addEventListener("beforeprint",function(){document.querySelectorAll("#v-consulta details").forEach(function(d){d.open=true;});});
 document.getElementById("list").addEventListener("click",function(ev){
   var b=ev.target.closest("[data-link]"); if(!b) return;
   var url=location.href.split("#")[0]+"#a-"+b.dataset.link, st=b.nextElementSibling;
