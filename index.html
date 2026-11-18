@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Simulador de semblanzas PAU</title>
+<meta name="description" content="Practica la pregunta 3 de la PAU de Historia del Arte (Comunidad de Madrid): 139 semblanzas de artistas, simulacros con corrección orientativa y fichas de obras.">
+<meta name="theme-color" content="#2e5e3e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta property="og:title" content="Simulador de semblanzas PAU">
+<meta property="og:description" content="Historia del Arte · 2.º de Bachillerato · Pregunta 3 de la PAU">
+<meta property="og:image" content="icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,6 +115,9 @@ summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
 .entry .t{color:var(--muted);font-size:.8rem;font-weight:600;letter-spacing:.02em}
 .entry p{font-family:var(--display);margin:8px 0 0;max-width:72ch}
 .hidden{display:none!important}
+.foot{border-top:1px solid var(--line);padding:18px 20px 40px;color:var(--muted);font-size:.85rem}
+.foot p{max-width:72ch;margin:0}
+.linkbtn{background:none;border:0;padding:0;color:var(--green);font:600 .85rem var(--body);cursor:pointer;text-decoration:underline}
 @media (max-width:640px){
   .card{grid-template-columns:1fr}
   .crit{grid-template-columns:110px 1fr 40px}
@@ -175,10 +186,10 @@ summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
   <!-- FICHAS -->
   <section id="v-fichas" class="hidden" aria-labelledby="h-fic">
     <h2 id="h-fic">Fichas de obras</h2>
-    <p class="lead">¿Quién es el autor? Las imágenes son las de las presentaciones de clase. Al responder verás la obra, el estilo y un enlace a la semblanza completa.</p>
+    <p class="lead">¿Quién es el autor? Las imágenes son las de las presentaciones de clase. Las obras que fallas vuelven a salir antes; las que aciertas varias veces seguidas pasan a «dominadas».</p>
     <div class="row" style="margin-bottom:14px"><label for="ficTema">Temas:</label>
       <select id="ficTema"></select>
-      <span class="stats" id="ficStats">0 aciertos de 0</span></div>
+      <span class="stats" id="ficStats"></span></div>
     <div class="card">
       <div class="frame"><img id="ficImg" alt=""></div>
       <div>
@@ -205,6 +216,9 @@ summary{cursor:pointer;padding:12px 16px;font-weight:600;color:var(--green)}
     <div id="list"></div>
   </section>
 </main>
+<footer class="wrap foot">
+  <p>Material de clase de Historia del Arte (2.º de Bachillerato). Semblanzas según el Decreto 64/2022 y el modelo de examen PAU 2027. Una vez abierta, la página funciona sin conexión y puede añadirse a la pantalla de inicio del móvil.</p>
+</footer>
 
 <script>
 (function(){
@@ -268,10 +282,12 @@ function grade(e,ans){
 /* ---------- Vistas ---------- */
 var views=["simulacro","fichas","consulta"];
 function route(){
-  var h=(location.hash||"#simulacro").slice(1); if(views.indexOf(h)<0) h="simulacro";
+  var h=(location.hash||"#simulacro").slice(1);
+  if(h.indexOf("a-")===0&&byId[h.slice(2)]){ document.getElementById("q").value=byId[h.slice(2)].nombre; document.getElementById("conTema").value="all"; drawList(); h="consulta"; }
+  if(views.indexOf(h)<0) h="simulacro";
   views.forEach(function(v){ document.getElementById("v-"+v).classList.toggle("hidden",v!==h); });
   document.querySelectorAll("nav a").forEach(function(a){ if(a.dataset.view===h) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  if(h==="fichas"&&!fic.cur) nextFic();
+  if(h==="fichas"&&!fic.cur){nextFic();ficStats();}
 }
 window.addEventListener("hashchange",route);
 
@@ -385,10 +401,15 @@ function drawHist(){
 
 /* ---------- Fichas ---------- */
 var fic={cur:null,ok:0,n:0};
+var BOX=store("ficBox")||{}; var W=[8,5,3,2,1];
+function boxOf(id){return BOX[id]===undefined?0:BOX[id];}
+function setBox(id,ok){BOX[id]=ok?Math.min(4,boxOf(id)+1):0;store("ficBox",BOX);}
 function ficPool(){var v=document.getElementById("ficTema").value;return DATA.filter(function(e){return e.img&&e.pie&&!/^Retrato|Piano y Richard/.test(e.pie)&&(v==="all"||String(e.tema)===v||(v==="e1"&&e.tema<=5)||(v==="e2"&&e.tema>=6&&e.tema<=12)||(v==="e3"&&e.tema>=13));});}
 function nextFic(){
   var p=ficPool(); if(!p.length) return;
-  var e=p[Math.floor(Math.random()*p.length)]; if(fic.cur&&p.length>1&&e===fic.cur) return nextFic();
+  var cand=p.filter(function(x){return x!==fic.cur||p.length===1;});
+  var tot=cand.reduce(function(s,x){return s+W[boxOf(x.id)];},0), r=Math.random()*tot, e=cand[0];
+  for(var k=0;k<cand.length;k++){ r-=W[boxOf(cand[k].id)]; if(r<=0){e=cand[k];break;} }
   fic.cur=e;
   var near=DATA.filter(function(x){return x!==e&&!x.compl&&Math.abs(x.tema-e.tema)<=1;});
   if(near.length<3) near=DATA.filter(function(x){return x!==e;});
@@ -398,11 +419,11 @@ function nextFic(){
   opts.forEach(function(o){
     var b=document.createElement("button"); b.type="button"; b.className="opt"; b.textContent=o.nombre;
     b.onclick=function(){
-      if(box.dataset.done) return; box.dataset.done="1"; fic.n++; if(o===e) fic.ok++;
+      if(box.dataset.done) return; box.dataset.done="1"; fic.n++; if(o===e) fic.ok++; setBox(e.id,o===e);
       box.querySelectorAll(".opt").forEach(function(x){ if(x.textContent===e.nombre) x.classList.add("right"); else if(x===b) x.classList.add("wrong"); });
-      document.getElementById("ficStats").textContent=fic.ok+" aciertos de "+fic.n;
+      ficStats();
       document.getElementById("ficTxt").innerHTML='<strong>'+esc(e.pie)+'</strong>, de '+esc(e.nombre)+'. '+esc(e.cab.split(" · ").pop());
-      document.getElementById("ficLink").href="#consulta"; document.getElementById("ficLink").onclick=function(){document.getElementById("q").value=e.nombre;drawList();};
+      document.getElementById("ficLink").href="#a-"+e.id;
       document.getElementById("ficInfo").classList.remove("hidden");
       document.getElementById("ficNext").focus();
     };
@@ -410,8 +431,10 @@ function nextFic(){
   });
   delete box.dataset.done; document.getElementById("ficInfo").classList.add("hidden");
 }
+function ficStats(){var p=ficPool(),dom=p.filter(function(x){return boxOf(x.id)>=3;}).length;
+  document.getElementById("ficStats").textContent=fic.ok+" aciertos de "+fic.n+" en esta sesión · "+dom+" de "+p.length+" obras dominadas";}
 document.getElementById("ficNext").onclick=nextFic;
-document.getElementById("ficTema").onchange=function(){fic.cur=null;nextFic();};
+document.getElementById("ficTema").onchange=function(){fic.cur=null;nextFic();ficStats();};
 
 /* ---------- Consulta ---------- */
 function drawList(){
@@ -420,10 +443,15 @@ function drawList(){
   document.getElementById("list").innerHTML=items.length?items.map(function(e){
     return '<article class="entry">'+(e.img?'<img src="'+e.img+'" alt="'+esc(e.pie||"")+'" loading="lazy">':'<div class="noimg" aria-hidden="true"></div>')+
     '<div><div class="t">'+esc(temaLabel(e.tema))+(e.compl?' · complementaria':'')+'</div><h3>'+esc(e.nombre)+'</h3><div class="stats">'+esc(e.cab)+'</div>'+
-    '<details style="border:0"><summary style="padding:8px 0">Leer la semblanza</summary><p>'+md(e.texto)+'</p></details>'+cartelas(e)+'</div></article>';
+    '<details style="border:0"><summary style="padding:8px 0">Leer la semblanza</summary><p>'+md(e.texto)+'</p></details>'+cartelas(e)+'<div style="margin-top:8px"><button type="button" class="linkbtn" data-link="'+e.id+'">Copiar enlace a esta semblanza</button> <span class="stats" role="status"></span></div></div></article>';
   }).join(""):'<p class="lead">No hay semblanzas con esa búsqueda. Prueba con otro nombre u obra.</p>';
 }
 document.getElementById("q").addEventListener("input",drawList);
+document.getElementById("list").addEventListener("click",function(ev){
+  var b=ev.target.closest("[data-link]"); if(!b) return;
+  var url=location.href.split("#")[0]+"#a-"+b.dataset.link, st=b.nextElementSibling;
+  try{navigator.clipboard.writeText(url).then(function(){st.textContent="Enlace copiado.";},function(){st.textContent=url;});}catch(x){st.textContent=url;}
+});
 document.getElementById("conTema").addEventListener("change",drawList);
 
 /* ---------- Carga ---------- */
@@ -436,6 +464,7 @@ fetch("semblanzas.json").then(function(r){if(!r.ok)throw new Error(r.status);ret
   document.getElementById("conTema").innerHTML='<option value="all">Todos los temas</option>'+opt;
   document.getElementById("ficTema").innerHTML='<option value="all">Todos los temas</option><option value="e1">1.ª evaluación (T1-T5)</option><option value="e2">2.ª evaluación (T6-T12)</option><option value="e3">3.ª evaluación (T13-T17)</option>'+opt;
   drawList(); drawHist(); generate(); route();
+  if("serviceWorker" in navigator&&location.protocol==="https:"){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
 }).catch(function(err){
   document.querySelector("main").innerHTML='<p class="lead">No se han podido cargar las semblanzas ('+esc(err.message)+'). Recarga la página.</p>';
 });
