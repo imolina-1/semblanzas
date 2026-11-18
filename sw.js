@@ -1,6 +1,6 @@
 // Funciona sin conexión: guarda la página, los datos y las imágenes.
 // Cambia VERSION cada vez que se actualicen semblanzas.json o index.html.
-const VERSION = "semblanzas-v3";
+const VERSION = "semblanzas-v4";
 const CORE = ["./", "index.html", "semblanzas.json", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

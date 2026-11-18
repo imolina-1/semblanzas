@@ -31,7 +31,7 @@ Material de uso docente. Las imágenes proceden de las presentaciones de clase; 
 
 ## Estadísticas anónimas
 
-La página puede enviar recuentos anónimos a [GoatCounter](https://www.goatcounter.com) (sin cookies ni datos personales). Se activan escribiendo el código de la cuenta en la línea `var GC_CODE="";` de `index.html`. Se registran estos eventos:
+La página puede enviar recuentos anónimos a [GoatCounter](https://www.goatcounter.com) (sin cookies ni datos personales). Están activas con la cuenta `imolina` (panel: https://imolina.goatcounter.com). El código se cambia en la línea `var GC_CODE` de `index.html`. Se registran estos eventos:
 
 | Ruta | Qué cuenta |
 |---|---|
